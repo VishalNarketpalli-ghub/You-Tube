@@ -56,7 +56,7 @@ const registerUser = asyncHandler(async (req, res) => {
     if (existedUser) {
         throw new ApiError(409, "User with email or username already exists")
     }
-    //console.log(req.files);
+    // console.log(req.files.avatar[0]);
 
     const avatarLocalPath = req.files?.avatar[0]?.path;
     //const coverImageLocalPath = req.files?.coverImage[0]?.path;
@@ -180,20 +180,23 @@ const logoutUser = asyncHandler(async (req, res) => {
 })
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
-    const incommingRefreshToken = refreshAccessToken.cookie
-        .refreshToken || req.body.refreshToken
+    const incommingRefreshToken = req.cookies?.refreshToken || req.body.refreshToken
+
+    console.log("incomming : ", incommingRefreshToken);
 
     try {
-        if (!refreshAccessToken) {
+        if (!incommingRefreshToken) {
             throw new ApiError(401, "unauthorized request");
         }
 
         const decodedToken = jwt.verify(
-            refreshAccessToken,
+            incommingRefreshToken,
             process.env.REFRESH_TOKEN_SECRET
         )
 
         const user = await User.findById(decodedToken?._id)
+
+        console.log("DB token : ", user?.refreshToken)
 
         if (!user) {
             throw new ApiError(401, "Invalid refresh token")
@@ -208,17 +211,17 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             secure: true
         }
 
-        const { accessToken, newRefreshToken } = await generateAccessAndRefreshTokens(user._id)
+        const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
 
         return res
             .status(200)
             .cookie("accessToken", accessToken, options)
-            .cookie("refreshToken", newRefreshToken, options)
+            .cookie("refreshToken", refreshToken, options)
             .json(
                 new ApiResponse(
                     200,
                     {
-                        accessToken, refreshToken: newRefreshToken
+                        accessToken, refreshToken
                     },
                     "Access token refreshed"
                 )
@@ -274,7 +277,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     return res
         .status(200)
         .json(new ApiResponse(
-            200, user, "user pdated successfully"
+            200, user, "user updated successfully"
         ))
 })
 
@@ -302,7 +305,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     )
     return res
         .status(200)
-        .json(ApiResponse(
+        .json(new ApiResponse(
             200,
             user,
             "Avatar updated successfully"
@@ -333,7 +336,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     )
     return res
         .status(200)
-        .json(ApiResponse(
+        .json(new ApiResponse(
             200,
             user,
             "Cover image updated successfully"
